@@ -1,4 +1,4 @@
-// Dashboard.jsx - Versión completa y funcional
+// Dashboard.jsx - Versión actualizada con acceso al chat
 import { useState, useEffect } from "react";
 import {
   Container,
@@ -54,7 +54,8 @@ import {
   LocalHospital as LocalHospitalIcon,
   Fastfood as FastfoodIcon,
   FitnessCenter as FitnessCenterIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  SmartToy as SmartToyIcon // Importamos el icono del asistente
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -415,6 +416,26 @@ export default function Dashboard() {
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: "bold" }}>
             GlucoControl
           </Typography>
+          
+          {/* BOTÓN DEL ASISTENTE IA EN LA BARRA SUPERIOR */}
+          <Tooltip title="Asistente IA">
+            <Button
+              variant="contained"
+              onClick={() => navigate("/chat")}
+              sx={{ 
+                mr: 1,
+                bgcolor: "#ffffff",
+                color: "#1976d2",
+                '&:hover': {
+                  bgcolor: "#e3f2fd",
+                }
+              }}
+              startIcon={<SmartToyIcon />}
+            >
+              Asistente IA
+            </Button>
+          </Tooltip>
+          
           <Tooltip title="Notificaciones">
             <IconButton color="inherit">
               <Badge badgeContent={medicamentos.filter(m => !m.tomado).length + comidas.filter(c => !c.registrado).length} color="error">
@@ -445,17 +466,42 @@ export default function Dashboard() {
           color: "white",
           boxShadow: 4
         }}>
-          <Typography variant="h4" fontWeight="bold" gutterBottom>
-            ¡Hola {usuario?.nombre || "Usuario"}! 👋
-          </Typography>
-          <Typography variant="body1" sx={{ opacity: 0.9 }}>
-            {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 1, opacity: 0.8 }}>
-            {medicamentos.filter(m => !m.tomado).length + comidas.filter(c => !c.registrado).length > 0 
-              ? `Tienes ${medicamentos.filter(m => !m.tomado).length + comidas.filter(c => !c.registrado).length} tareas pendientes` 
-              : "¡Todo al día! Buen trabajo"}
-          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Box>
+              <Typography variant="h4" fontWeight="bold" gutterBottom>
+                ¡Hola {usuario?.nombre || "Usuario"}! 👋
+              </Typography>
+              <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1, opacity: 0.8 }}>
+                {medicamentos.filter(m => !m.tomado).length + comidas.filter(c => !c.registrado).length > 0 
+                  ? `Tienes ${medicamentos.filter(m => !m.tomado).length + comidas.filter(c => !c.registrado).length} tareas pendientes` 
+                  : "¡Todo al día! Buen trabajo"}
+              </Typography>
+            </Box>
+            
+            {/* BOTÓN DEL ASISTENTE IA EN EL HEADER DEL DASHBOARD */}
+            <Button
+              variant="contained"
+              onClick={() => navigate("/chat")}
+              sx={{
+                bgcolor: "#ffffff",
+                color: "#1976d2",
+                fontWeight: "bold",
+                px: 3,
+                py: 1.5,
+                '&:hover': {
+                  bgcolor: "#e3f2fd",
+                  transform: "scale(1.05)",
+                },
+                transition: "transform 0.2s",
+              }}
+              startIcon={<SmartToyIcon />}
+            >
+              Hablar con mi Asistente
+            </Button>
+          </Box>
         </Paper>
 
         <Paper sx={{ borderRadius: 4, mb: 3, boxShadow: 2 }}>

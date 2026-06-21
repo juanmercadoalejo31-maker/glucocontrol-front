@@ -11,7 +11,8 @@ import {
   InputAdornment,
   Fade,
   alpha,
-  Snackbar
+  Snackbar,
+  FormHelperText
 } from "@mui/material";
 
 import {
@@ -54,6 +55,11 @@ export default function Login() {
     message: ""
   });
 
+  const [touched, setTouched] = useState({
+    email: false,
+    password: false
+  });
+
   const handleChange = (e) => {
 
     setFormData({
@@ -70,12 +76,114 @@ export default function Login() {
 
   };
 
+  // ✅ VALIDACIÓN COMPLETA DE CORREO
+  const isEmailValid = (email) => {
+    // 1. No puede tener espacios
+    if (email.includes(' ')) {
+      return false;
+    }
+    
+    // 2. Debe tener @
+    if (!email.includes('@')) {
+      return false;
+    }
+    
+    // 3. Debe tener . después del @
+    const parts = email.split('@');
+    if (parts.length !== 2) {
+      return false;
+    }
+    
+    const domain = parts[1];
+    if (!domain.includes('.')) {
+      return false;
+    }
+    
+    // 4. No puede tener espacios en ninguna parte
+    if (email.trim() !== email) {
+      return false;
+    }
+    
+    // 5. Validación completa con expresión regular
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // ✅ FUNCIÓN PARA OBTENER EL MENSAJE DE AYUDA
+  const getEmailHelperText = () => {
+    const email = formData.email;
+    
+    // Campo vacío y no tocado
+    if (!email && !touched.email) {
+      return "📧 Ejemplo: usuario@correo.com";
+    }
+    
+    // Campo vacío y tocado
+    if (!email && touched.email) {
+      return "⚠️ El correo electrónico es requerido";
+    }
+    
+    // ✅ VALIDACIONES ESPECÍFICAS
+    if (email) {
+      // Tiene espacios
+      if (email.includes(' ')) {
+        return "❌ El correo NO puede contener espacios";
+      }
+      
+      // No tiene @
+      if (!email.includes('@')) {
+        return "❌ El correo debe contener @ (ejemplo: usuario@correo.com)";
+      }
+      
+      // Tiene @ pero no tiene . después del @
+      const parts = email.split('@');
+      if (parts.length === 2 && !parts[1].includes('.')) {
+        return "❌ El correo debe tener .com, .org, etc. (ejemplo: usuario@correo.com)";
+      }
+      
+      // Tiene espacios al inicio o final
+      if (email.trim() !== email) {
+        return "❌ El correo no puede tener espacios al inicio o final";
+      }
+      
+      // Tiene caracteres extraños
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return "❌ Formato inválido. Usa: usuario@dominio.com";
+      }
+      
+      // ¡TODO BIEN!
+      return "✅ Correo válido";
+    }
+    
+    return "📧 Ingresa tu correo electrónico";
+  };
+
+  // ✅ FUNCIÓN PARA SABER SI EL EMAIL TIENE ERROR
+  const hasEmailError = () => {
+    const email = formData.email;
+    if (!touched.email && !email) return false;
+    if (!email) return true;
+    return !isEmailValid(email);
+  };
+
+  // ✅ COLOR DEL MENSAJE
+  const getEmailHelperColor = () => {
+    const email = formData.email;
+    
+    if (!touched.email && !email) return 'text.secondary';
+    if (!email) return 'error.main';
+    if (email && isEmailValid(email)) return 'success.main';
+    return 'error.main';
+  };
+
   const validateForm = () => {
 
     const newErrors = {};
 
     if (!formData.email) {
-      newErrors.email = "El correo es requerido";
+      newErrors.email = "El correo electrónico es requerido";
+    } else if (!isEmailValid(formData.email)) {
+      newErrors.email = "Correo electrónico inválido";
     }
 
     if (!formData.password) {
@@ -89,6 +197,11 @@ export default function Login() {
   const handleSubmit = async (e) => {
 
     e.preventDefault();
+
+    setTouched({
+      email: true,
+      password: true
+    });
 
     const newErrors = validateForm();
 
@@ -210,63 +323,62 @@ export default function Login() {
 
             <form onSubmit={handleSubmit}>
 
-              <TextField
-                fullWidth
-                margin="normal"
-                name="email"
-                label="Correo Electrónico"
-                value={formData.email}
-                onChange={handleChange}
-                error={!!errors.email}
-                helperText={errors.email}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <EmailIcon color="primary" />
-                    </InputAdornment>
-                  )
-                }}
-              />
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  name="email"
+                  label="Correo Electrónico"
+                  placeholder="usuario@correo.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                  onBlur={() => setTouched({ ...touched, email: true })}
+                  error={hasEmailError()}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <EmailIcon color={hasEmailError() ? "error" : "primary"} />
+                      </InputAdornment>
+                    )
+                  }}
+                />
+                
+                {/* ✅ MENSAJE DE AYUDA CON VALIDACIÓN DE ESPACIOS */}
+                <FormHelperText 
+                  sx={{ 
+                    ml: 2,
+                    mt: 0.5,
+                    color: getEmailHelperColor(),
+                    fontWeight: hasEmailError() ? 600 : 400
+                  }}
+                >
+                  {getEmailHelperText()}
+                </FormHelperText>
+              </Box>
 
               <TextField
                 fullWidth
                 margin="normal"
                 name="password"
                 label="Contraseña"
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
+                placeholder="Mínimo 6 caracteres"
+                type={showPassword ? "text" : "password"}
                 value={formData.password}
                 onChange={handleChange}
+                onBlur={() => setTouched({ ...touched, password: true })}
                 error={!!errors.password}
-                helperText={errors.password}
+                helperText={errors.password || "🔑 Ingresa tu contraseña"}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
                       <LockIcon color="primary" />
                     </InputAdornment>
                   ),
-
                   endAdornment: (
                     <InputAdornment position="end">
-
-                      <IconButton
-                        onClick={() =>
-                          setShowPassword(
-                            !showPassword
-                          )
-                        }
-                      >
-                        {
-                          showPassword
-                            ? <VisibilityOffIcon />
-                            : <VisibilityIcon />
-                        }
-
+                      <IconButton onClick={() => setShowPassword(!showPassword)}>
+                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                       </IconButton>
-
                     </InputAdornment>
                   )
                 }}
@@ -283,53 +395,33 @@ export default function Login() {
                   mt: 3,
                   py: 1.5,
                   borderRadius: 3,
-                  background:
-                    "linear-gradient(135deg,#667eea,#764ba2)"
+                  background: "linear-gradient(135deg,#667eea,#764ba2)"
                 }}
               >
-                {
-                  loading
-                    ? "Iniciando..."
-                    : "Entrar"
-                }
+                {loading ? "Iniciando..." : "Entrar"}
               </Button>
 
             </form>
 
-            <Typography
-              align="center"
-              sx={{ mt: 3 }}
-            >
-
-              {/* ✅ Enlace corregido - Ahora navega a /forgot-password */}
+            <Typography align="center" sx={{ mt: 3 }}>
               <Link
                 component="button"
                 underline="hover"
-                onClick={() =>
-                  navigate("/forgot-password")
-                }
+                onClick={() => navigate("/forgot-password")}
               >
                 ¿Olvidaste tu contraseña?
               </Link>
-
             </Typography>
 
-            <Typography
-              align="center"
-              sx={{ mt: 2 }}
-            >
+            <Typography align="center" sx={{ mt: 2 }}>
               ¿No tienes cuenta?{" "}
-
               <Link
                 component="button"
                 underline="hover"
-                onClick={() =>
-                  navigate("/register")
-                }
+                onClick={() => navigate("/register")}
               >
                 Regístrate aquí
               </Link>
-
             </Typography>
 
           </Paper>
@@ -341,17 +433,9 @@ export default function Login() {
       <Snackbar
         open={errorSnackbar.open}
         autoHideDuration={4000}
-        onClose={() =>
-          setErrorSnackbar({
-            ...errorSnackbar,
-            open: false
-          })
-        }
+        onClose={() => setErrorSnackbar({ ...errorSnackbar, open: false })}
       >
-        <Alert
-          severity="error"
-          variant="filled"
-        >
+        <Alert severity="error" variant="filled">
           {errorSnackbar.message}
         </Alert>
       </Snackbar>

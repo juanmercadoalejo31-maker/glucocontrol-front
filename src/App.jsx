@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import ForgotPassword from "./pages/ForgotPassword";
+import ChatIA from "./pages/ChatIA";
 
 function App() {
   return (
@@ -38,6 +39,11 @@ function App() {
         <Route
   path="/forgot-password"
   element={<ForgotPassword />}
+/>
+
+<Route
+  path="/chat"
+  element={<ChatIA />}
 />
 
       </Routes>
