@@ -1,4 +1,4 @@
-// Dashboard.jsx - Versión actualizada con acceso al chat y análisis Prolog
+// Dashboard.jsx - COMPLETO con Prolog Simulado, Chat y Educación Física
 import { useState, useEffect } from "react";
 import {
   Container,
@@ -32,8 +32,7 @@ import {
   Badge,
   alpha,
   Tooltip,
-  CircularProgress,
-  Divider
+  CircularProgress
 } from "@mui/material";
 import {
   Favorite as FavoriteIcon,
@@ -53,12 +52,15 @@ import {
   Edit as EditIcon,
   AccessTime as AccessTimeIcon,
   LocalHospital as LocalHospitalIcon,
-  Fastfood as FastfoodIcon,
-  FitnessCenter as FitnessCenterIcon,
   Logout as LogoutIcon,
   SmartToy as SmartToyIcon,
   Psychology as PsychologyIcon,
-  Lightbulb as LightbulbIcon
+  Lightbulb as LightbulbIcon,
+  Close as CloseIcon,
+  Send as SendIcon,
+  School as SchoolIcon,
+  FitnessCenter as FitnessCenterIcon,
+  SelfImprovement as SelfImprovementIcon
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -73,14 +75,7 @@ const CircularProgressWithLabel = ({ value, size = 80, color }) => {
   return (
     <Box sx={{ position: "relative", display: "inline-flex" }}>
       <svg width={size} height={size}>
-        <circle
-          stroke="#e0e0e0"
-          fill="none"
-          strokeWidth={4}
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-        />
+        <circle stroke="#e0e0e0" fill="none" strokeWidth={4} cx={size / 2} cy={size / 2} r={radius} />
         <circle
           stroke={color || "#1976d2"}
           fill="none"
@@ -94,21 +89,8 @@ const CircularProgressWithLabel = ({ value, size = 80, color }) => {
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </svg>
-      <Box
-        sx={{
-          top: 0,
-          left: 0,
-          bottom: 0,
-          right: 0,
-          position: "absolute",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Typography variant="h6" component="div" fontWeight="bold">
-          {Math.round(value)}%
-        </Typography>
+      <Box sx={{ position: "absolute", display: "flex", alignItems: "center", justifyContent: "center", top: 0, left: 0, bottom: 0, right: 0 }}>
+        <Typography variant="h6" component="div" fontWeight="bold">{Math.round(value)}%</Typography>
       </Box>
     </Box>
   );
@@ -124,6 +106,7 @@ export default function Dashboard() {
   const [openGlucosaDialog, setOpenGlucosaDialog] = useState(false);
   const [openProfileDialog, setOpenProfileDialog] = useState(false);
   const [openPrologDialog, setOpenPrologDialog] = useState(false);
+  const [openChatDialog, setOpenChatDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [editingMed, setEditingMed] = useState(null);
   const [editingMeal, setEditingMeal] = useState(null);
@@ -141,6 +124,13 @@ export default function Dashboard() {
   const [glucosaParaAnalizar, setGlucosaParaAnalizar] = useState("");
   const [cargandoAnalisis, setCargandoAnalisis] = useState(false);
   
+  // Estado para el chat
+  const [chatMessages, setChatMessages] = useState([
+    { text: '👋 ¡Hola! Soy tu asistente de diabetes con Prolog.\n\nPregúntame sobre:\n• 📊 Glucosa: "mi glucosa es 120"\n• 🍽️ Comida: "qué debo comer"\n• 🏃 Ejercicio: "qué ejercicio hacer"\n• 💊 Medicamentos: "horario"\n• 💧 Agua: "cuánta agua debo tomar"', sender: 'bot' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  
   // Formularios
   const [newMedicamento, setNewMedicamento] = useState({ nombre: "", dosis: "", horario: "08:00" });
   const [newComida, setNewComida] = useState({ nombre: "", descripcion: "", calorias: "" });
@@ -156,7 +146,7 @@ export default function Dashboard() {
     metaAgua: 8
   });
 
-  // Cargar datos del usuario
+  // Cargar datos
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -169,7 +159,6 @@ export default function Dashboard() {
   const cargarDatos = async () => {
     setLoading(true);
     try {
-      // Cargar perfil
       const profileRes = await api.get('/auth/profile');
       setUsuario(profileRes.data);
       setProfileForm({
@@ -182,42 +171,29 @@ export default function Dashboard() {
         metaAgua: profileRes.data.metaAgua || 8
       });
       
-      // Cargar glucosa
       const glucosaRes = await api.get('/glucosa');
-      const ultimaGlucosa = glucosaRes.data.length > 0 ? glucosaRes.data[0].valor : 0;
-      setGlucosa({
-        value: ultimaGlucosa,
-        mediciones: glucosaRes.data
-      });
+      setGlucosa({ value: glucosaRes.data.length > 0 ? glucosaRes.data[0].valor : 0, mediciones: glucosaRes.data });
       
-      // Cargar medicamentos
       const medicamentosRes = await api.get('/medicamentos');
       setMedicamentos(medicamentosRes.data);
       
-      // Cargar comidas
       const comidasRes = await api.get('/comidas');
       setComidas(comidasRes.data);
       
-      // Cargar actividades
       const actividadRes = await api.get('/actividades');
       setActividad({
         pasos: actividadRes.data.resumen?.pasos || 0,
         minutos: actividadRes.data.resumen?.minutos || 0,
         calorias: actividadRes.data.resumen?.calorias || 0,
-        metaPasos: actividadRes.data.metaPasos || 10000,
-        historial: actividadRes.data.historial || []
+        metaPasos: actividadRes.data.metaPasos || 10000
       });
       
-      // Cargar hidratación
       const hidratacionRes = await api.get('/hidratacion');
-      setHidratacion({
-        vasos: hidratacionRes.data.vasos || 0,
-        metaVasos: hidratacionRes.data.metaVasos || 8
-      });
+      setHidratacion({ vasos: hidratacionRes.data.vasos || 0, metaVasos: hidratacionRes.data.metaVasos || 8 });
       
     } catch (error) {
-      console.error('Error al cargar datos:', error);
-      showMessage(error.response?.data?.mensaje || 'Error al cargar los datos', 'error');
+      console.error('Error:', error);
+      showMessage('Error al cargar los datos', 'error');
     } finally {
       setLoading(false);
     }
@@ -227,7 +203,9 @@ export default function Dashboard() {
     setSnackbar({ open: true, message, severity });
   };
 
-  // PASO 10: Función para analizar con Prolog
+  // ============================================
+  // ANALIZAR CON PROLOG (MODO SIMULADO)
+  // ============================================
   const analizarConProlog = async () => {
     const valor = parseInt(glucosaParaAnalizar);
     if (isNaN(valor) || valor < 40 || valor > 600) {
@@ -237,35 +215,98 @@ export default function Dashboard() {
 
     setCargandoAnalisis(true);
     try {
-      const response = await api.post("/prolog/analizar", {
-        glucosa: valor
-      });
+      const response = await api.post("/prolog/analizar", { glucosa: valor });
+      const { estado, recomendacion } = response.data;
 
       setAnalisisProlog({
         valor: valor,
-        resultado: response.data.resultado,
-        recomendacion: response.data.recomendacion || "Sin recomendación específica",
+        resultado: estado || 'desconocido',
+        recomendacion: recomendacion || "Sin recomendación específica",
         timestamp: new Date().toISOString()
       });
       
       setOpenPrologDialog(true);
       showMessage("✅ Análisis completado con éxito");
     } catch (error) {
-      console.error('Error al analizar con Prolog:', error);
-      showMessage(error.response?.data?.mensaje || 'Error al realizar el análisis', 'error');
+      console.error('Error:', error);
+      const estadoLocal = valor >= 70 && valor <= 180 ? 'normal' : valor < 70 ? 'baja' : 'alta';
+      const recs = {
+        'normal': '✅ Tus niveles de glucosa están en rango normal. ¡Excelente! Sigue así.',
+        'baja': '⚠️ Tu glucosa está BAJA. Toma jugo de fruta o come algo dulce.',
+        'alta': '⚠️ Tu glucosa está ALTA. Toma tu medicación y evita azúcares.'
+      };
+      setAnalisisProlog({
+        valor: valor,
+        resultado: estadoLocal,
+        recomendacion: recs[estadoLocal] || 'Mantén control de tu glucosa.',
+        timestamp: new Date().toISOString()
+      });
+      setOpenPrologDialog(true);
+      showMessage("⚠️ Usando modo simulado", "warning");
     } finally {
       setCargandoAnalisis(false);
     }
   };
 
-  // Registrar glucosa
+  // ============================================
+  // ENVIAR MENSAJE AL CHAT
+  // ============================================
+  const sendChatMessage = async () => {
+    if (!chatInput.trim()) return;
+
+    const userMessage = { text: chatInput, sender: 'user' };
+    setChatMessages(prev => [...prev, userMessage]);
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const response = await api.post('/prolog/chat', { mensaje: chatInput });
+      const botMessage = { text: response.data.respuesta || 'No pude procesar tu mensaje.', sender: 'bot' };
+      setChatMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Error en chat:', error);
+      
+      // Respuestas simuladas para el chat
+      const respuestasSimuladas = {
+        'glucosa': '📊 Para analizar tu glucosa, necesito el valor. Ejemplo: "mi glucosa es 120"',
+        'comer': '🍽️ RECOMENDACIONES DE ALIMENTACIÓN:\n• Vegetales de hoja verde\n• Proteínas magras\n• Granos integrales\n• Evita azúcares refinados',
+        'ejercicio': '🏃 RECOMENDACIONES DE EJERCICIO:\n• Caminata 30 min diarios\n• Natación, ciclismo o yoga\n• Ejercicio moderado 5 días/semana',
+        'medicamento': '💊 HORARIO DE MEDICAMENTOS:\n• 7:00 AM - Insulina\n• 8:00 AM - Metformina\n• 8:00 PM - Metformina\n• 7:00 PM - Insulina',
+        'agua': '💧 Bebe 8-10 vasos de agua al día (2-2.5 litros)'
+      };
+      
+      let respuesta = '🤔 No entendí. Pregúntame sobre glucosa, comida, ejercicio, medicamentos o hidratación.';
+      const msgLower = chatInput.toLowerCase();
+      for (const [key, value] of Object.entries(respuestasSimuladas)) {
+        if (msgLower.includes(key)) {
+          respuesta = value;
+          break;
+        }
+      }
+      
+      const botMessage = { text: respuesta, sender: 'bot' };
+      setChatMessages(prev => [...prev, botMessage]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const handleChatKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  };
+
+  // ============================================
+  // CRUD Y OTRAS FUNCIONES
+  // ============================================
   const registrarGlucosaManual = async () => {
     const valor = parseInt(glucosaInput);
     if (isNaN(valor) || valor < 40 || valor > 600) {
       showMessage("⚠️ Ingresa un valor válido entre 40 y 600 mg/dL", "error");
       return;
     }
-    
     try {
       await api.post('/glucosa', { valor });
       await cargarDatos();
@@ -273,18 +314,15 @@ export default function Dashboard() {
       setOpenGlucosaDialog(false);
       showMessage(`✅ Glucosa registrada: ${valor} mg/dL`);
     } catch (error) {
-      console.error('Error:', error);
-      showMessage(error.response?.data?.mensaje || 'Error al registrar glucosa', 'error');
+      showMessage('Error al registrar glucosa', 'error');
     }
   };
 
-  // CRUD Medicamentos
   const agregarMedicamento = async () => {
     if (!newMedicamento.nombre) {
       showMessage("⚠️ Ingresa el nombre del medicamento", "error");
       return;
     }
-    
     try {
       if (editingMed) {
         await api.put(`/medicamentos/${editingMed._id}`, newMedicamento);
@@ -298,8 +336,7 @@ export default function Dashboard() {
       setNewMedicamento({ nombre: "", dosis: "", horario: "08:00" });
       setOpenMedDialog(false);
     } catch (error) {
-      console.error('Error:', error);
-      showMessage(error.response?.data?.mensaje || 'Error al guardar medicamento', 'error');
+      showMessage('Error al guardar medicamento', 'error');
     }
   };
 
@@ -309,7 +346,6 @@ export default function Dashboard() {
       await cargarDatos();
       showMessage(`🗑️ ${nombre} eliminado`, "error");
     } catch (error) {
-      console.error('Error:', error);
       showMessage('Error al eliminar medicamento', 'error');
     }
   };
@@ -318,22 +354,18 @@ export default function Dashboard() {
     try {
       await api.put(`/medicamentos/${id}`, { tomado: !tomado });
       await cargarDatos();
-      const medicamento = medicamentos.find(m => m._id === id);
-      const estado = !tomado ? "marcado como tomado" : "marcado como pendiente";
-      showMessage(`💊 ${medicamento?.nombre} ${estado}`);
+      const med = medicamentos.find(m => m._id === id);
+      showMessage(`💊 ${med?.nombre} ${!tomado ? "marcado como tomado" : "marcado como pendiente"}`);
     } catch (error) {
-      console.error('Error:', error);
       showMessage('Error al actualizar medicamento', 'error');
     }
   };
 
-  // CRUD Comidas
   const agregarComida = async () => {
     if (!newComida.nombre) {
       showMessage("⚠️ Ingresa el nombre de la comida", "error");
       return;
     }
-    
     try {
       if (editingMeal) {
         await api.put(`/comidas/${editingMeal._id}`, newComida);
@@ -347,8 +379,7 @@ export default function Dashboard() {
       setNewComida({ nombre: "", descripcion: "", calorias: "" });
       setOpenMealDialog(false);
     } catch (error) {
-      console.error('Error:', error);
-      showMessage(error.response?.data?.mensaje || 'Error al guardar comida', 'error');
+      showMessage('Error al guardar comida', 'error');
     }
   };
 
@@ -358,7 +389,6 @@ export default function Dashboard() {
       await cargarDatos();
       showMessage(`🗑️ ${nombre} eliminado`, "error");
     } catch (error) {
-      console.error('Error:', error);
       showMessage('Error al eliminar comida', 'error');
     }
   };
@@ -368,18 +398,15 @@ export default function Dashboard() {
       await api.put(`/comidas/${id}`, { registrado: !registrado });
       await cargarDatos();
     } catch (error) {
-      console.error('Error:', error);
       showMessage('Error al actualizar comida', 'error');
     }
   };
 
-  // Registrar Actividad
   const registrarActividad = async () => {
     if (!newActividad.duracion || parseInt(newActividad.duracion) <= 0) {
       showMessage("⚠️ Ingresa una duración válida", "error");
       return;
     }
-    
     try {
       await api.post('/actividades', newActividad);
       await cargarDatos();
@@ -387,24 +414,20 @@ export default function Dashboard() {
       setOpenActivityDialog(false);
       showMessage(`🏃 Actividad registrada!`);
     } catch (error) {
-      console.error('Error:', error);
-      showMessage(error.response?.data?.mensaje || 'Error al registrar actividad', 'error');
+      showMessage('Error al registrar actividad', 'error');
     }
   };
 
-  // Registrar hidratación
   const registrarVasoAgua = async () => {
     try {
       await api.post('/hidratacion/vaso');
       await cargarDatos();
       showMessage("💧 ¡Vaso de agua registrado!");
     } catch (error) {
-      console.error('Error:', error);
       showMessage('Error al registrar vaso', 'error');
     }
   };
 
-  // Actualizar perfil
   const actualizarPerfil = async () => {
     try {
       await api.put('/auth/profile', profileForm);
@@ -412,12 +435,10 @@ export default function Dashboard() {
       setOpenProfileDialog(false);
       showMessage('✅ Perfil actualizado correctamente');
     } catch (error) {
-      console.error('Error:', error);
-      showMessage(error.response?.data?.mensaje || 'Error al actualizar perfil', 'error');
+      showMessage('Error al actualizar perfil', 'error');
     }
   };
 
-  // Cerrar sesión
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
@@ -436,16 +457,15 @@ export default function Dashboard() {
     return "Normal ✓";
   };
 
-  const porcentajeProgreso = Math.min((actividad.pasos / actividad.metaPasos) * 100, 100);
-  const porcentajeHidratacion = Math.min((hidratacion.vasos / hidratacion.metaVasos) * 100, 100);
-
-  // Obtener color según estado de glucosa para el análisis
   const getAnalisisColor = (estado) => {
     if (estado === "normal") return "#4caf50";
     if (estado === "baja") return "#ff9800";
     if (estado === "alta") return "#f44336";
     return "#1976d2";
   };
+
+  const porcentajeProgreso = Math.min((actividad.pasos / actividad.metaPasos) * 100, 100);
+  const porcentajeHidratacion = Math.min((hidratacion.vasos / hidratacion.metaVasos) * 100, 100);
 
   if (loading) {
     return (
@@ -458,49 +478,20 @@ export default function Dashboard() {
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#f5f7fa" }}>
       
+      {/* ========================================== */}
+      {/* APP BAR */}
+      {/* ========================================== */}
       <AppBar position="sticky" sx={{ bgcolor: "#1976d2", boxShadow: 3 }}>
         <Toolbar>
           <LocalHospitalIcon sx={{ mr: 1 }} />
-          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: "bold" }}>
-            GlucoControl
-          </Typography>
+          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: "bold" }}>GlucoControl</Typography>
           
-          {/* Botón Análisis Prolog */}
-          <Tooltip title="Análisis con Prolog">
-            <Button
-              variant="contained"
-              onClick={() => setOpenPrologDialog(true)}
-              sx={{ 
-                mr: 1,
-                bgcolor: "#ffffff",
-                color: "#1976d2",
-                '&:hover': {
-                  bgcolor: "#e3f2fd",
-                }
-              }}
-              startIcon={<PsychologyIcon />}
-            >
-              Analizar
-            </Button>
+          <Tooltip title="Análisis Prolog">
+            <Button variant="contained" onClick={() => setOpenPrologDialog(true)} sx={{ mr: 1, bgcolor: "#ffffff", color: "#1976d2", '&:hover': { bgcolor: "#e3f2fd" } }} startIcon={<PsychologyIcon />}>Analizar</Button>
           </Tooltip>
 
-          {/* Botón del Asistente IA */}
           <Tooltip title="Asistente IA">
-            <Button
-              variant="contained"
-              onClick={() => navigate("/chat")}
-              sx={{ 
-                mr: 1,
-                bgcolor: "#ffffff",
-                color: "#1976d2",
-                '&:hover': {
-                  bgcolor: "#e3f2fd",
-                }
-              }}
-              startIcon={<SmartToyIcon />}
-            >
-              Asistente IA
-            </Button>
+            <Button variant="contained" onClick={() => setOpenChatDialog(true)} sx={{ mr: 1, bgcolor: "#ffffff", color: "#1976d2", '&:hover': { bgcolor: "#e3f2fd" } }} startIcon={<SmartToyIcon />}>Asistente</Button>
           </Tooltip>
           
           <Tooltip title="Notificaciones">
@@ -511,97 +502,54 @@ export default function Dashboard() {
             </IconButton>
           </Tooltip>
           <Tooltip title="Mi Perfil">
-            <IconButton color="inherit" onClick={() => setOpenProfileDialog(true)}>
-              <PersonIcon />
-            </IconButton>
+            <IconButton color="inherit" onClick={() => setOpenProfileDialog(true)}><PersonIcon /></IconButton>
           </Tooltip>
           <Tooltip title="Cerrar Sesión">
-            <IconButton color="inherit" onClick={handleLogout}>
-              <LogoutIcon />
-            </IconButton>
+            <IconButton color="inherit" onClick={handleLogout}><LogoutIcon /></IconButton>
           </Tooltip>
         </Toolbar>
       </AppBar>
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
         
-        <Paper sx={{ 
-          p: 3, 
-          mb: 3, 
-          borderRadius: 4, 
-          background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
-          color: "white",
-          boxShadow: 4
-        }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        {/* ========================================== */}
+        {/* HEADER */}
+        {/* ========================================== */}
+        <Paper sx={{ p: 3, mb: 3, borderRadius: 4, background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)", color: "white", boxShadow: 4 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2 }}>
             <Box>
-              <Typography variant="h4" fontWeight="bold" gutterBottom>
-                ¡Hola {usuario?.nombre || "Usuario"}! 👋
-              </Typography>
-              <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
-              </Typography>
+              <Typography variant="h4" fontWeight="bold" gutterBottom>¡Hola {usuario?.nombre || "Usuario"}! 👋</Typography>
+              <Typography variant="body1" sx={{ opacity: 0.9 }}>{format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}</Typography>
               <Typography variant="body2" sx={{ mt: 1, opacity: 0.8 }}>
                 {medicamentos.filter(m => !m.tomado).length + comidas.filter(c => !c.registrado).length > 0 
                   ? `Tienes ${medicamentos.filter(m => !m.tomado).length + comidas.filter(c => !c.registrado).length} tareas pendientes` 
                   : "¡Todo al día! Buen trabajo"}
               </Typography>
             </Box>
-            
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <Button
-                variant="contained"
-                onClick={() => setOpenPrologDialog(true)}
-                sx={{
-                  bgcolor: "#ffffff",
-                  color: "#1976d2",
-                  fontWeight: "bold",
-                  px: 3,
-                  py: 1.5,
-                  '&:hover': {
-                    bgcolor: "#e3f2fd",
-                    transform: "scale(1.05)",
-                  },
-                  transition: "transform 0.2s",
-                }}
-                startIcon={<PsychologyIcon />}
-              >
-                Análisis Prolog
-              </Button>
-              
-              <Button
-                variant="contained"
-                onClick={() => navigate("/chat")}
-                sx={{
-                  bgcolor: "#ffffff",
-                  color: "#1976d2",
-                  fontWeight: "bold",
-                  px: 3,
-                  py: 1.5,
-                  '&:hover': {
-                    bgcolor: "#e3f2fd",
-                    transform: "scale(1.05)",
-                  },
-                  transition: "transform 0.2s",
-                }}
-                startIcon={<SmartToyIcon />}
-              >
-                Hablar con mi Asistente
-              </Button>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              <Button variant="contained" onClick={() => setOpenPrologDialog(true)} sx={{ bgcolor: "#ffffff", color: "#1976d2", fontWeight: "bold", '&:hover': { bgcolor: "#e3f2fd", transform: "scale(1.05)" } }} startIcon={<PsychologyIcon />}>Análisis Prolog</Button>
+              <Button variant="contained" onClick={() => setOpenChatDialog(true)} sx={{ bgcolor: "#ffffff", color: "#1976d2", fontWeight: "bold", '&:hover': { bgcolor: "#e3f2fd", transform: "scale(1.05)" } }} startIcon={<SmartToyIcon />}>Asistente</Button>
             </Box>
           </Box>
         </Paper>
 
+        {/* ========================================== */}
+        {/* TABS */}
+        {/* ========================================== */}
         <Paper sx={{ borderRadius: 4, mb: 3, boxShadow: 2 }}>
           <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} variant="fullWidth">
             <Tab icon={<DashboardIcon />} label="Resumen" />
             <Tab icon={<MedicationIcon />} label="Medicamentos" />
             <Tab icon={<RestaurantIcon />} label="Comidas" />
             <Tab icon={<BarChartIcon />} label="Estadísticas" />
+            <Tab icon={<FitnessCenterIcon />} label="Ejercicio" />
+            <Tab icon={<SchoolIcon />} label="Educación" />
           </Tabs>
         </Paper>
 
-        {/* Panel Resumen */}
+        {/* ========================================== */}
+        {/* TAB 0: RESUMEN */}
+        {/* ========================================== */}
         {activeTab === 0 && (
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
@@ -615,17 +563,11 @@ export default function Dashboard() {
                       </Typography>
                       <Chip label={getGlucosaStatus()} size="small" sx={{ mt: 1, bgcolor: getGlucosaColor(), color: "white" }} />
                     </Box>
-                    <Avatar sx={{ bgcolor: getGlucosaColor(), width: 70, height: 70 }}>
-                      <FavoriteIcon sx={{ fontSize: 40 }} />
-                    </Avatar>
+                    <Avatar sx={{ bgcolor: getGlucosaColor(), width: 70, height: 70 }}><FavoriteIcon sx={{ fontSize: 40 }} /></Avatar>
                   </Box>
                   <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
-                    <Button fullWidth variant="contained" onClick={() => setOpenGlucosaDialog(true)}>
-                      Registrar Manual
-                    </Button>
-                    <Button fullWidth variant="outlined" onClick={() => setOpenPrologDialog(true)}>
-                      Analizar
-                    </Button>
+                    <Button fullWidth variant="contained" onClick={() => setOpenGlucosaDialog(true)}>Registrar Manual</Button>
+                    <Button fullWidth variant="outlined" onClick={() => setOpenPrologDialog(true)}>Analizar</Button>
                   </Box>
                 </CardContent>
               </Card>
@@ -667,9 +609,7 @@ export default function Dashboard() {
                       </Paper>
                     </Grid>
                   </Grid>
-                  <Button fullWidth variant="outlined" onClick={() => setOpenActivityDialog(true)} sx={{ mt: 2 }} startIcon={<AddIcon />}>
-                    Registrar Actividad
-                  </Button>
+                  <Button fullWidth variant="outlined" onClick={() => setOpenActivityDialog(true)} sx={{ mt: 2 }} startIcon={<AddIcon />}>Registrar Actividad</Button>
                 </CardContent>
               </Card>
             </Grid>
@@ -686,9 +626,7 @@ export default function Dashboard() {
                     <Typography variant="body2">de {hidratacion.metaVasos} vasos</Typography>
                   </Box>
                   <LinearProgress variant="determinate" value={porcentajeHidratacion} sx={{ height: 10, borderRadius: 5, mb: 2 }} />
-                  <Button fullWidth variant="contained" onClick={registrarVasoAgua} startIcon={<WaterDropIcon />}>
-                    + Vaso de Agua
-                  </Button>
+                  <Button fullWidth variant="contained" onClick={registrarVasoAgua} startIcon={<WaterDropIcon />}>+ Vaso de Agua</Button>
                 </CardContent>
               </Card>
             </Grid>
@@ -707,21 +645,16 @@ export default function Dashboard() {
                     <Typography color="text.secondary" align="center" sx={{ py: 3 }}>No hay medicamentos registrados</Typography>
                   ) : (
                     <List>
-                      {medicamentos.map((med) => (
+                      {medicamentos.slice(0, 3).map((med) => (
                         <Paper key={med._id} sx={{ p: 1.5, mb: 1, bgcolor: alpha("#43a047", med.tomado ? 0.1 : 0.05) }}>
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <Box>
                               <Typography variant="subtitle2" fontWeight="bold">{med.nombre}</Typography>
                               <Typography variant="caption" color="text.secondary">{med.dosis} • {med.horario}</Typography>
                             </Box>
-                            <Box>
-                              <Button size="small" variant={med.tomado ? "contained" : "outlined"} color={med.tomado ? "success" : "warning"} onClick={() => toggleMedicamento(med._id, med.tomado)} sx={{ mr: 1 }}>
-                                {med.tomado ? "Tomado ✓" : "Pendiente"}
-                              </Button>
-                              <IconButton size="small" onClick={() => eliminarMedicamento(med._id, med.nombre)} color="error">
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Box>
+                            <Button size="small" variant={med.tomado ? "contained" : "outlined"} color={med.tomado ? "success" : "warning"} onClick={() => toggleMedicamento(med._id, med.tomado)}>
+                              {med.tomado ? "Tomado ✓" : "Pendiente"}
+                            </Button>
                           </Box>
                         </Paper>
                       ))}
@@ -745,20 +678,14 @@ export default function Dashboard() {
                     <Typography color="text.secondary" align="center" sx={{ py: 3 }}>No hay comidas registradas</Typography>
                   ) : (
                     <List>
-                      {comidas.map((comida) => (
+                      {comidas.slice(0, 3).map((comida) => (
                         <Paper key={comida._id} sx={{ p: 1.5, mb: 1, bgcolor: alpha("#ff9800", 0.05) }}>
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <Box flex={1}>
                               <Typography variant="subtitle2" fontWeight="bold">{comida.nombre}</Typography>
-                              <Typography variant="caption" color="text.secondary" display="block">{comida.descripcion}</Typography>
-                              <Typography variant="caption" color="text.secondary">🍽️ {comida.calorias} kcal</Typography>
+                              <Typography variant="caption" color="text.secondary">{comida.calorias} kcal</Typography>
                             </Box>
-                            <Box>
-                              <Chip label={comida.registrado ? "Registrado ✓" : "Pendiente"} size="small" color={comida.registrado ? "success" : "default"} onClick={() => toggleComida(comida._id, comida.registrado)} sx={{ mr: 1 }} />
-                              <IconButton size="small" onClick={() => eliminarComida(comida._id, comida.nombre)} color="error">
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Box>
+                            <Chip label={comida.registrado ? "Registrado ✓" : "Pendiente"} size="small" color={comida.registrado ? "success" : "default"} onClick={() => toggleComida(comida._id, comida.registrado)} />
                           </Box>
                         </Paper>
                       ))}
@@ -770,7 +697,9 @@ export default function Dashboard() {
           </Grid>
         )}
 
-        {/* Panel Medicamentos */}
+        {/* ========================================== */}
+        {/* TAB 1: MEDICAMENTOS */}
+        {/* ========================================== */}
         {activeTab === 1 && (
           <Card sx={{ borderRadius: 4, boxShadow: 3 }}>
             <CardContent>
@@ -778,9 +707,7 @@ export default function Dashboard() {
                 <Typography variant="h5" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <MedicationIcon color="primary" /> Mis Medicamentos
                 </Typography>
-                <Button variant="contained" onClick={() => { setEditingMed(null); setNewMedicamento({ nombre: "", dosis: "", horario: "08:00" }); setOpenMedDialog(true); }} startIcon={<AddIcon />}>
-                  Agregar Medicamento
-                </Button>
+                <Button variant="contained" onClick={() => { setEditingMed(null); setNewMedicamento({ nombre: "", dosis: "", horario: "08:00" }); setOpenMedDialog(true); }} startIcon={<AddIcon />}>Agregar</Button>
               </Box>
               <Grid container spacing={2}>
                 {medicamentos.map((med) => (
@@ -800,12 +727,8 @@ export default function Dashboard() {
                             {med.tomado ? "✓ Tomado" : "Pendiente"}
                           </Button>
                           <Box>
-                            <IconButton onClick={() => { setEditingMed(med); setNewMedicamento({ nombre: med.nombre, dosis: med.dosis, horario: med.horario }); setOpenMedDialog(true); }} size="small">
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton onClick={() => eliminarMedicamento(med._id, med.nombre)} color="error" size="small">
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
+                            <IconButton onClick={() => { setEditingMed(med); setNewMedicamento({ nombre: med.nombre, dosis: med.dosis, horario: med.horario }); setOpenMedDialog(true); }} size="small"><EditIcon fontSize="small" /></IconButton>
+                            <IconButton onClick={() => eliminarMedicamento(med._id, med.nombre)} color="error" size="small"><DeleteIcon fontSize="small" /></IconButton>
                           </Box>
                         </Box>
                       </Box>
@@ -817,7 +740,9 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {/* Panel Comidas */}
+        {/* ========================================== */}
+        {/* TAB 2: COMIDAS */}
+        {/* ========================================== */}
         {activeTab === 2 && (
           <Card sx={{ borderRadius: 4, boxShadow: 3 }}>
             <CardContent>
@@ -825,9 +750,7 @@ export default function Dashboard() {
                 <Typography variant="h5" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <RestaurantIcon color="warning" /> Mis Comidas
                 </Typography>
-                <Button variant="contained" onClick={() => { setEditingMeal(null); setNewComida({ nombre: "", descripcion: "", calorias: "" }); setOpenMealDialog(true); }} startIcon={<AddIcon />}>
-                  Registrar Comida
-                </Button>
+                <Button variant="contained" onClick={() => { setEditingMeal(null); setNewComida({ nombre: "", descripcion: "", calorias: "" }); setOpenMealDialog(true); }} startIcon={<AddIcon />}>Registrar</Button>
               </Box>
               <Grid container spacing={2}>
                 {comidas.map((comida) => (
@@ -842,12 +765,8 @@ export default function Dashboard() {
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1, alignItems: "flex-end" }}>
                           <Chip label={comida.registrado ? "Registrado ✓" : "Pendiente"} size="small" color={comida.registrado ? "success" : "default"} onClick={() => toggleComida(comida._id, comida.registrado)} />
                           <Box>
-                            <IconButton onClick={() => { setEditingMeal(comida); setNewComida({ nombre: comida.nombre, descripcion: comida.descripcion, calorias: comida.calorias.toString() }); setOpenMealDialog(true); }} size="small">
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton onClick={() => eliminarComida(comida._id, comida.nombre)} color="error" size="small">
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
+                            <IconButton onClick={() => { setEditingMeal(comida); setNewComida({ nombre: comida.nombre, descripcion: comida.descripcion, calorias: comida.calorias.toString() }); setOpenMealDialog(true); }} size="small"><EditIcon fontSize="small" /></IconButton>
+                            <IconButton onClick={() => eliminarComida(comida._id, comida.nombre)} color="error" size="small"><DeleteIcon fontSize="small" /></IconButton>
                           </Box>
                         </Box>
                       </Box>
@@ -859,7 +778,9 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {/* Panel Estadísticas */}
+        {/* ========================================== */}
+        {/* TAB 3: ESTADÍSTICAS */}
+        {/* ========================================== */}
         {activeTab === 3 && (
           <Grid container spacing={3}>
             <Grid item xs={12}>
@@ -924,7 +845,169 @@ export default function Dashboard() {
           </Grid>
         )}
 
-        {/* Diálogo de Análisis Prolog */}
+        {/* ========================================== */}
+        {/* TAB 4: EJERCICIO / EDUCACIÓN FÍSICA */}
+        {/* ========================================== */}
+        {activeTab === 4 && (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card sx={{ borderRadius: 4, boxShadow: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <FitnessCenterIcon color="primary" /> Ejercicio Recomendado
+                  </Typography>
+                  <Paper sx={{ p: 2, bgcolor: alpha("#1e88e5", 0.05), borderRadius: 3 }}>
+                    <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+                      {`🏃 RUTINA SEMANAL SUGERIDA:
+• Lunes: Caminata 30 min
+• Martes: Yoga 30 min
+• Miércoles: Natación 30 min
+• Jueves: Pesas 20 min
+• Viernes: Caminata rápida 20 min
+• Sábado: Ciclismo 30 min
+• Domingo: Descanso activo`}
+                    </Typography>
+                  </Paper>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Card sx={{ borderRadius: 4, boxShadow: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <SelfImprovementIcon color="warning" /> Consejos de Ejercicio
+                  </Typography>
+                  <Paper sx={{ p: 2, bgcolor: alpha("#ff9800", 0.05), borderRadius: 3 }}>
+                    <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+                      {`💪 CONSEJOS:
+• 30 minutos de actividad física moderada
+• 5 días a la semana
+• Incluye ejercicios de fuerza 2 veces/semana
+• Monitorea tu glucosa antes y después
+• Si estás bajo, haz ejercicio ligero
+• Si estás alto, haz ejercicio moderado`}
+                    </Typography>
+                  </Paper>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12}>
+              <Card sx={{ borderRadius: 4, boxShadow: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>📊 Tu Actividad</Typography>
+                  <Grid container spacing={3}>
+                    <Grid item xs={4}>
+                      <Paper sx={{ p: 2, textAlign: "center", bgcolor: alpha("#1e88e5", 0.1), borderRadius: 3 }}>
+                        <Typography variant="h3" fontWeight="bold" color="#1e88e5">{actividad.pasos}</Typography>
+                        <Typography variant="caption">Pasos de hoy</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Paper sx={{ p: 2, textAlign: "center", bgcolor: alpha("#ff9800", 0.1), borderRadius: 3 }}>
+                        <Typography variant="h3" fontWeight="bold" color="#ff9800">{actividad.minutos}</Typography>
+                        <Typography variant="caption">Minutos activos</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Paper sx={{ p: 2, textAlign: "center", bgcolor: alpha("#4caf50", 0.1), borderRadius: 3 }}>
+                        <Typography variant="h3" fontWeight="bold" color="#4caf50">{actividad.calorias}</Typography>
+                        <Typography variant="caption">Calorías quemadas</Typography>
+                      </Paper>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* ========================================== */}
+        {/* TAB 5: EDUCACIÓN */}
+        {/* ========================================== */}
+        {activeTab === 5 && (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card sx={{ borderRadius: 4, boxShadow: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <SchoolIcon color="primary" /> Educación para la Diabetes
+                  </Typography>
+                  <Paper sx={{ p: 2, bgcolor: alpha("#1976d2", 0.05), borderRadius: 3 }}>
+                    <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+                      {`📚 CONOCE TU DIABETES:
+• Conoce tus niveles de glucosa
+• Aprende a contar carbohidratos
+• Identifica síntomas de hipoglucemia
+• Planifica tus comidas
+• Mantén un registro diario`}
+                    </Typography>
+                  </Paper>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Card sx={{ borderRadius: 4, boxShadow: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <HealthAndSafetyIcon color="warning" /> Autocuidado
+                  </Typography>
+                  <Paper sx={{ p: 2, bgcolor: alpha("#4caf50", 0.05), borderRadius: 3 }}>
+                    <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+                      {`💚 CONSEJOS DE AUTOCUIDADO:
+• Revisa tus pies diariamente
+• Mantén tu peso saludable
+• No saltes comidas
+• Duerme 7-8 horas
+• Maneja el estrés
+• Mantén un peso saludable
+• Realiza ejercicio regular`}
+                    </Typography>
+                  </Paper>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12}>
+              <Card sx={{ borderRadius: 4, boxShadow: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>📋 Recomendaciones Nutricionales</Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <Paper sx={{ p: 2, bgcolor: alpha("#4caf50", 0.1), borderRadius: 3 }}>
+                        <Typography variant="subtitle1" fontWeight="bold" color="#4caf50">✅ Alimentos Recomendados</Typography>
+                        <Typography variant="body2">
+                          • Vegetales de hoja verde
+                          • Proteínas magras (pollo, pescado)
+                          • Granos integrales (quinoa, avena)
+                          • Frutas: manzana, pera, fresas
+                          • Nueces y semillas
+                          • Legumbres y frijoles
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Paper sx={{ p: 2, bgcolor: alpha("#f44336", 0.1), borderRadius: 3 }}>
+                        <Typography variant="subtitle1" fontWeight="bold" color="#f44336">❌ Alimentos a Evitar</Typography>
+                        <Typography variant="body2">
+                          • Azúcares refinados
+                          • Bebidas azucaradas
+                          • Pan y arroz blanco
+                          • Pastas refinadas
+                          • Dulces y postres
+                          • Comidas procesadas
+                          • Frituras
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* ========================================== */}
+        {/* DIÁLOGO: ANÁLISIS PROLOG */}
+        {/* ========================================== */}
         <Dialog open={openPrologDialog} onClose={() => setOpenPrologDialog(false)} maxWidth="md" fullWidth>
           <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <PsychologyIcon color="primary" /> Análisis con Prolog
@@ -932,78 +1015,82 @@ export default function Dashboard() {
           <DialogContent dividers>
             {analisisProlog ? (
               <Box sx={{ mb: 3 }}>
-                <Box sx={{ 
-                  p: 3, 
-                  borderRadius: 2, 
-                  bgcolor: alpha(getAnalisisColor(analisisProlog.resultado), 0.1),
-                  border: `2px solid ${getAnalisisColor(analisisProlog.resultado)}`,
-                  mb: 2
-                }}>
-                  <Typography variant="h6" gutterBottom>
-                    Resultado del análisis para {analisisProlog.valor} mg/dL
-                  </Typography>
-                  <Chip 
-                    label={analisisProlog.resultado === "normal" ? "✅ Normal" : 
-                           analisisProlog.resultado === "baja" ? "⚠️ Baja" : "⚠️ Alta"}
-                    sx={{ 
-                      bgcolor: getAnalisisColor(analisisProlog.resultado),
-                      color: "white",
-                      fontWeight: "bold",
-                      mb: 2
-                    }}
-                  />
-                  <Typography variant="body1" sx={{ mt: 2 }}>
+                <Box sx={{ p: 3, borderRadius: 2, bgcolor: alpha(getAnalisisColor(analisisProlog.resultado), 0.1), border: `2px solid ${getAnalisisColor(analisisProlog.resultado)}`, mb: 2 }}>
+                  <Typography variant="h6" gutterBottom>Resultado para {analisisProlog.valor} mg/dL</Typography>
+                  <Chip label={analisisProlog.resultado === "normal" ? "✅ Normal" : analisisProlog.resultado === "baja" ? "⚠️ Baja" : "⚠️ Alta"} sx={{ bgcolor: getAnalisisColor(analisisProlog.resultado), color: "white", fontWeight: "bold", mb: 2 }} />
+                  <Typography variant="body1" sx={{ mt: 2, whiteSpace: "pre-wrap" }}>
                     <LightbulbIcon sx={{ mr: 1, verticalAlign: "middle", color: "#ff9800" }} />
                     {analisisProlog.recomendacion}
                   </Typography>
                 </Box>
-                <Typography variant="caption" color="text.secondary">
-                  Análisis realizado: {format(new Date(analisisProlog.timestamp), "HH:mm • dd/MM/yyyy")}
-                </Typography>
+                <Typography variant="caption" color="text.secondary">Análisis: {format(new Date(analisisProlog.timestamp), "HH:mm • dd/MM/yyyy")}</Typography>
               </Box>
             ) : (
               <Box sx={{ textAlign: "center", py: 3 }}>
-                <Typography variant="body1" color="text.secondary" gutterBottom>
-                  Ingresa un valor de glucosa para analizar con el sistema Prolog
-                </Typography>
-                <Box sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "center" }}>
-                  <TextField
-                    label="Glucosa (mg/dL)"
-                    type="number"
-                    value={glucosaParaAnalizar}
-                    onChange={(e) => setGlucosaParaAnalizar(e.target.value)}
-                    sx={{ width: 200 }}
-                    InputProps={{ inputProps: { min: 40, max: 600 } }}
-                  />
-                  <Button 
-                    variant="contained" 
-                    onClick={analizarConProlog}
-                    disabled={cargandoAnalisis}
-                    startIcon={cargandoAnalisis ? <CircularProgress size={20} /> : <PsychologyIcon />}
-                  >
+                <Typography variant="body1" color="text.secondary" gutterBottom>Ingresa un valor de glucosa para analizar con Prolog</Typography>
+                <Box sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
+                  <TextField label="Glucosa (mg/dL)" type="number" value={glucosaParaAnalizar} onChange={(e) => setGlucosaParaAnalizar(e.target.value)} sx={{ width: 200 }} InputProps={{ inputProps: { min: 40, max: 600 } }} />
+                  <Button variant="contained" onClick={analizarConProlog} disabled={cargandoAnalisis} startIcon={cargandoAnalisis ? <CircularProgress size={20} /> : <PsychologyIcon />}>
                     {cargandoAnalisis ? "Analizando..." : "Analizar"}
                   </Button>
                 </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: "block" }}>
-                  Rango normal: 70-180 mg/dL
-                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: "block" }}>Rango normal: 70-180 mg/dL</Typography>
               </Box>
             )}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenPrologDialog(false)}>Cerrar</Button>
             {analisisProlog && (
-              <Button variant="outlined" onClick={() => {
-                setAnalisisProlog(null);
-                setGlucosaParaAnalizar("");
-              }}>
-                Nuevo Análisis
-              </Button>
+              <Button variant="outlined" onClick={() => { setAnalisisProlog(null); setGlucosaParaAnalizar(""); }}>Nuevo Análisis</Button>
             )}
           </DialogActions>
         </Dialog>
 
-        {/* Diálogo de Perfil */}
+        {/* ========================================== */}
+        {/* DIÁLOGO: CHAT */}
+        {/* ========================================== */}
+        <Dialog open={openChatDialog} onClose={() => setOpenChatDialog(false)} maxWidth="md" fullWidth fullScreen={window.innerWidth < 600}>
+          <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <SmartToyIcon sx={{ mr: 1 }} />
+              <Typography variant="h6">Asistente IA con Prolog</Typography>
+            </Box>
+            <IconButton color="inherit" onClick={() => setOpenChatDialog(false)}><CloseIcon /></IconButton>
+          </DialogTitle>
+          <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '500px' }}>
+            <Box sx={{ flex: 1, p: 2, overflowY: 'auto' }}>
+              {chatMessages.map((msg, index) => (
+                <Box key={index} sx={{ display: 'flex', justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start', mb: 2 }}>
+                  <Paper sx={{ p: 2, maxWidth: '70%', bgcolor: msg.sender === 'user' ? '#1976d2' : '#f0f4f8', color: msg.sender === 'user' ? 'white' : 'text.primary', borderRadius: msg.sender === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px', whiteSpace: 'pre-wrap' }}>
+                    <Typography variant="body1">{msg.text}</Typography>
+                  </Paper>
+                </Box>
+              ))}
+              {chatLoading && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
+                  <Paper sx={{ p: 2, bgcolor: '#f0f4f8', borderRadius: '18px 18px 18px 4px' }}>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <CircularProgress size={20} />
+                      <Typography variant="body2" color="text.secondary">Prolog analizando...</Typography>
+                    </Box>
+                  </Paper>
+                </Box>
+              )}
+            </Box>
+            <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField fullWidth placeholder="Escribe tu mensaje..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyPress={handleChatKeyPress} multiline maxRows={3} variant="outlined" disabled={chatLoading} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }} />
+                <IconButton color="primary" onClick={sendChatMessage} disabled={chatLoading || !chatInput.trim()} sx={{ bgcolor: '#1976d2', color: 'white', '&:hover': { bgcolor: '#1565c0', transform: 'scale(1.05)' }, '&:disabled': { bgcolor: '#ccc', transform: 'none' }, width: 48, height: 48, borderRadius: 3, transition: 'transform 0.2s' }}>
+                  <SendIcon />
+                </IconButton>
+              </Box>
+            </Box>
+          </DialogContent>
+        </Dialog>
+
+        {/* ========================================== */}
+        {/* DIÁLOGOS CRUD */}
+        {/* ========================================== */}
         <Dialog open={openProfileDialog} onClose={() => setOpenProfileDialog(false)} maxWidth="sm" fullWidth>
           <DialogTitle>Mi Perfil</DialogTitle>
           <DialogContent>
@@ -1020,18 +1107,17 @@ export default function Dashboard() {
                 <MenuItem value="otro">Otro</MenuItem>
               </Select>
             </FormControl>
-            <TextField fullWidth label="Meta de pasos diarios" type="number" value={profileForm.metaPasos} onChange={(e) => setProfileForm({ ...profileForm, metaPasos: e.target.value })} margin="normal" />
+            <TextField fullWidth label="Meta de pasos" type="number" value={profileForm.metaPasos} onChange={(e) => setProfileForm({ ...profileForm, metaPasos: e.target.value })} margin="normal" />
             <TextField fullWidth label="Meta de vasos de agua" type="number" value={profileForm.metaAgua} onChange={(e) => setProfileForm({ ...profileForm, metaAgua: e.target.value })} margin="normal" />
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenProfileDialog(false)}>Cancelar</Button>
-            <Button onClick={actualizarPerfil} variant="contained">Guardar Cambios</Button>
+            <Button onClick={actualizarPerfil} variant="contained">Guardar</Button>
           </DialogActions>
         </Dialog>
 
-        {/* Diálogo Registrar Glucosa */}
         <Dialog open={openGlucosaDialog} onClose={() => setOpenGlucosaDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Registrar Medición de Glucosa</DialogTitle>
+          <DialogTitle>Registrar Glucosa</DialogTitle>
           <DialogContent>
             <TextField fullWidth label="Glucosa (mg/dL)" type="number" value={glucosaInput} onChange={(e) => setGlucosaInput(e.target.value)} margin="normal" autoFocus />
             <Typography variant="caption" color="text.secondary">Rango normal: 70-180 mg/dL</Typography>
@@ -1042,9 +1128,8 @@ export default function Dashboard() {
           </DialogActions>
         </Dialog>
 
-        {/* Diálogo Agregar Medicamento */}
         <Dialog open={openMedDialog} onClose={() => { setOpenMedDialog(false); setEditingMed(null); }} maxWidth="sm" fullWidth>
-          <DialogTitle>{editingMed ? "Editar Medicamento" : "Agregar Medicamento"}</DialogTitle>
+          <DialogTitle>{editingMed ? "Editar" : "Agregar"} Medicamento</DialogTitle>
           <DialogContent>
             <TextField fullWidth label="Nombre" value={newMedicamento.nombre} onChange={(e) => setNewMedicamento({ ...newMedicamento, nombre: e.target.value })} margin="normal" />
             <TextField fullWidth label="Dosis" value={newMedicamento.dosis} onChange={(e) => setNewMedicamento({ ...newMedicamento, dosis: e.target.value })} margin="normal" />
@@ -1056,9 +1141,8 @@ export default function Dashboard() {
           </DialogActions>
         </Dialog>
 
-        {/* Diálogo Agregar Comida */}
         <Dialog open={openMealDialog} onClose={() => { setOpenMealDialog(false); setEditingMeal(null); }} maxWidth="sm" fullWidth>
-          <DialogTitle>{editingMeal ? "Editar Comida" : "Registrar Comida"}</DialogTitle>
+          <DialogTitle>{editingMeal ? "Editar" : "Registrar"} Comida</DialogTitle>
           <DialogContent>
             <TextField fullWidth label="Nombre" value={newComida.nombre} onChange={(e) => setNewComida({ ...newComida, nombre: e.target.value })} margin="normal" />
             <TextField fullWidth label="Descripción" value={newComida.descripcion} onChange={(e) => setNewComida({ ...newComida, descripcion: e.target.value })} margin="normal" multiline rows={2} />
@@ -1070,7 +1154,6 @@ export default function Dashboard() {
           </DialogActions>
         </Dialog>
 
-        {/* Diálogo Registrar Actividad */}
         <Dialog open={openActivityDialog} onClose={() => setOpenActivityDialog(false)} maxWidth="sm" fullWidth>
           <DialogTitle>Registrar Actividad</DialogTitle>
           <DialogContent>
@@ -1082,6 +1165,8 @@ export default function Dashboard() {
                 <MenuItem value="natacion">🏊 Natación</MenuItem>
                 <MenuItem value="ciclismo">🚴 Ciclismo</MenuItem>
                 <MenuItem value="gimnasio">💪 Gimnasio</MenuItem>
+                <MenuItem value="yoga">🧘 Yoga</MenuItem>
+                <MenuItem value="deporte">⛹️ Deporte</MenuItem>
               </Select>
             </FormControl>
             <TextField fullWidth label="Duración (minutos)" type="number" value={newActividad.duracion} onChange={(e) => setNewActividad({ ...newActividad, duracion: e.target.value })} margin="normal" />
@@ -1092,6 +1177,9 @@ export default function Dashboard() {
           </DialogActions>
         </Dialog>
 
+        {/* ========================================== */}
+        {/* SNACKBAR */}
+        {/* ========================================== */}
         <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
           <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
         </Snackbar>
