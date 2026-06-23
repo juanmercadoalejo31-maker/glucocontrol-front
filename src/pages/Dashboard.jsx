@@ -1,4 +1,4 @@
-// Dashboard.jsx - COMPLETO con Prolog Simulado, Chat y Educación Física
+// Dashboard.jsx - COMPLETO con Prolog Simulado para Análisis y Asistente IA
 import { useState, useEffect } from "react";
 import {
   Container,
@@ -60,7 +60,8 @@ import {
   Send as SendIcon,
   School as SchoolIcon,
   FitnessCenter as FitnessCenterIcon,
-  SelfImprovement as SelfImprovementIcon
+  SelfImprovement as SelfImprovementIcon,
+  HealthAndSafety as HealthAndSafetyIcon
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -124,9 +125,9 @@ export default function Dashboard() {
   const [glucosaParaAnalizar, setGlucosaParaAnalizar] = useState("");
   const [cargandoAnalisis, setCargandoAnalisis] = useState(false);
   
-  // Estado para el chat
+  // Estado para el chat (ASISTENTE IA SIMULADO - NO PROLOG)
   const [chatMessages, setChatMessages] = useState([
-    { text: '👋 ¡Hola! Soy tu asistente de diabetes con Prolog.\n\nPregúntame sobre:\n• 📊 Glucosa: "mi glucosa es 120"\n• 🍽️ Comida: "qué debo comer"\n• 🏃 Ejercicio: "qué ejercicio hacer"\n• 💊 Medicamentos: "horario"\n• 💧 Agua: "cuánta agua debo tomar"', sender: 'bot' }
+    { text: '👋 ¡Hola! Soy tu asistente IA de GlucoControl.\n\nPregúntame sobre:\n• 📊 Glucosa: "mi glucosa es 120"\n• 🍽️ Comida: "qué debo comer"\n• 🏃 Ejercicio: "qué ejercicio hacer"\n• 💊 Medicamentos: "horario"\n• 💧 Agua: "cuánta agua debo tomar"', sender: 'bot' }
   ]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -204,7 +205,7 @@ export default function Dashboard() {
   };
 
   // ============================================
-  // ANALIZAR CON PROLOG (MODO SIMULADO)
+  // ANALIZAR CON PROLOG (CON REGLAS DE PROLOG)
   // ============================================
   const analizarConProlog = async () => {
     const valor = parseInt(glucosaParaAnalizar);
@@ -215,6 +216,7 @@ export default function Dashboard() {
 
     setCargandoAnalisis(true);
     try {
+      // Intentar con el backend Prolog
       const response = await api.post("/prolog/analizar", { glucosa: valor });
       const { estado, recomendacion } = response.data;
 
@@ -222,34 +224,41 @@ export default function Dashboard() {
         valor: valor,
         resultado: estado || 'desconocido',
         recomendacion: recomendacion || "Sin recomendación específica",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        modo: response.data.modo || 'backend'
       });
       
       setOpenPrologDialog(true);
       showMessage("✅ Análisis completado con éxito");
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error al analizar con Prolog:', error);
+      
+      // MODO SIMULADO CON REGLAS DE PROLOG (FALLBACK)
       const estadoLocal = valor >= 70 && valor <= 180 ? 'normal' : valor < 70 ? 'baja' : 'alta';
+      
+      // Recomendaciones según las reglas de Prolog
       const recs = {
-        'normal': '✅ Tus niveles de glucosa están en rango normal. ¡Excelente! Sigue así.',
-        'baja': '⚠️ Tu glucosa está BAJA. Toma jugo de fruta o come algo dulce.',
-        'alta': '⚠️ Tu glucosa está ALTA. Toma tu medicación y evita azúcares.'
+        'normal': '✅ Tus niveles de glucosa están en rango normal (70-180 mg/dL). ¡Excelente trabajo! Sigue con tu dieta balanceada y ejercicio regular.',
+        'baja': '⚠️ Tu glucosa está BAJA (< 70 mg/dL). Acciones inmediatas:\n• Toma jugo de fruta natural\n• Come una fruta (manzana, plátano)\n• Consume 15g de carbohidratos de absorción rápida\n• Si persiste, consulta a tu médico',
+        'alta': '⚠️ Tu glucosa está ALTA (> 180 mg/dL). Acciones recomendadas:\n• Toma tu medicación a tiempo\n• Evita azúcares y carbohidratos refinados\n• Realiza ejercicio moderado (caminata 15-20 min)\n• Bebe agua para mantener hidratación\n• Si persiste, consulta a tu médico'
       };
+      
       setAnalisisProlog({
         valor: valor,
         resultado: estadoLocal,
         recomendacion: recs[estadoLocal] || 'Mantén control de tu glucosa.',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        modo: 'simulado'
       });
       setOpenPrologDialog(true);
-      showMessage("⚠️ Usando modo simulado", "warning");
+      showMessage("⚠️ Usando modo simulado (Prolog no disponible)", "warning");
     } finally {
       setCargandoAnalisis(false);
     }
   };
 
   // ============================================
-  // ENVIAR MENSAJE AL CHAT
+  // ASISTENTE IA (SIMULADO - NO PROLOG)
   // ============================================
   const sendChatMessage = async () => {
     if (!chatInput.trim()) return;
@@ -260,28 +269,43 @@ export default function Dashboard() {
     setChatLoading(true);
 
     try {
-      const response = await api.post('/prolog/chat', { mensaje: chatInput });
+      // Intentar con el backend de IA (si existe)
+      const response = await api.post('/ia/chat', { mensaje: chatInput });
       const botMessage = { text: response.data.respuesta || 'No pude procesar tu mensaje.', sender: 'bot' };
       setChatMessages(prev => [...prev, botMessage]);
     } catch (error) {
-      console.error('Error en chat:', error);
+      console.error('Error en chat IA:', error);
       
-      // Respuestas simuladas para el chat
+      // RESPUESTAS SIMULADAS DEL ASISTENTE IA
       const respuestasSimuladas = {
-        'glucosa': '📊 Para analizar tu glucosa, necesito el valor. Ejemplo: "mi glucosa es 120"',
-        'comer': '🍽️ RECOMENDACIONES DE ALIMENTACIÓN:\n• Vegetales de hoja verde\n• Proteínas magras\n• Granos integrales\n• Evita azúcares refinados',
-        'ejercicio': '🏃 RECOMENDACIONES DE EJERCICIO:\n• Caminata 30 min diarios\n• Natación, ciclismo o yoga\n• Ejercicio moderado 5 días/semana',
-        'medicamento': '💊 HORARIO DE MEDICAMENTOS:\n• 7:00 AM - Insulina\n• 8:00 AM - Metformina\n• 8:00 PM - Metformina\n• 7:00 PM - Insulina',
-        'agua': '💧 Bebe 8-10 vasos de agua al día (2-2.5 litros)'
+        'glucosa': '📊 Para analizar tu glucosa, necesito el valor. Ejemplo: "mi glucosa es 120"\n\n💡 También puedes usar el botón "Análisis Prolog" para un análisis más detallado con reglas médicas.',
+        'comer': '🍽️ RECOMENDACIONES DE ALIMENTACIÓN:\n✅ Alimentos recomendados:\n• Vegetales de hoja verde\n• Proteínas magras (pollo, pescado)\n• Granos integrales (quinoa, avena)\n• Frutas: manzana, pera, fresas\n\n❌ Alimentos a evitar:\n• Azúcares refinados\n• Bebidas azucaradas\n• Pan y arroz blanco',
+        'ejercicio': '🏃 RECOMENDACIONES DE EJERCICIO:\n• Caminata 30 min diarios\n• Natación, ciclismo o yoga\n• Ejercicio moderado 5 días/semana\n\n💪 Consejos:\n• Monitorea tu glucosa antes y después\n• Si estás bajo, haz ejercicio ligero\n• Si estás alto, haz ejercicio moderado',
+        'medicamento': '💊 HORARIO DE MEDICAMENTOS SUGERIDO:\n• 7:00 AM - Insulina (10 UI)\n• 8:00 AM - Metformina (500mg)\n• 8:00 PM - Metformina (500mg)\n• 7:00 PM - Insulina (10 UI)\n\n⚠️ Consulta a tu médico para ajustes específicos.',
+        'agua': '💧 RECOMENDACIÓN DE HIDRATACIÓN:\n• Bebe 8-10 vasos de agua al día\n• 2-2.5 litros diarios\n• Evita bebidas azucaradas\n• El agua ayuda a controlar la glucosa\n\n💡 Lleva siempre una botella de agua contigo.',
+        'educación': '📚 EDUCACIÓN PARA LA DIABETES:\n• Conoce tus niveles de glucosa\n• Aprende a contar carbohidratos\n• Identifica síntomas de hipoglucemia\n• Planifica tus comidas\n• Mantén un registro diario\n• Revisa tus pies diariamente\n• Mantén tu peso saludable\n• No saltes comidas\n• Duerme 7-8 horas',
+        'ejercicio_fisico': '🏃 EDUCACIÓN FÍSICA:\n• 30 minutos de actividad física moderada\n• 5 días a la semana\n• Incluye ejercicios de fuerza 2 veces/semana\n\nRUTINA SEMANAL SUGERIDA:\n• Lunes: Caminata 30 min\n• Martes: Yoga 30 min\n• Miércoles: Natación 30 min\n• Jueves: Pesas 20 min\n• Viernes: Caminata rápida 20 min\n• Sábado: Ciclismo 30 min\n• Domingo: Descanso activo'
       };
       
-      let respuesta = '🤔 No entendí. Pregúntame sobre glucosa, comida, ejercicio, medicamentos o hidratación.';
+      let respuesta = '🤔 No entendí tu pregunta.\n\nPregúntame sobre:\n• 📊 Glucosa: "mi glucosa es 120"\n• 🍽️ Comida: "qué debo comer"\n• 🏃 Ejercicio: "qué ejercicio hacer"\n• 💊 Medicamentos: "horario"\n• 💧 Agua: "cuánta agua debo tomar"\n• 📚 Educación: "consejos para diabetes"';
+      
       const msgLower = chatInput.toLowerCase();
-      for (const [key, value] of Object.entries(respuestasSimuladas)) {
-        if (msgLower.includes(key)) {
-          respuesta = value;
-          break;
-        }
+      
+      // Detectar palabras clave
+      if (msgLower.includes('glucosa') || msgLower.includes('azúcar')) {
+        respuesta = respuestasSimuladas['glucosa'];
+      } else if (msgLower.includes('comer') || msgLower.includes('comida') || msgLower.includes('alimento')) {
+        respuesta = respuestasSimuladas['comer'];
+      } else if (msgLower.includes('ejercicio') || msgLower.includes('actividad') || msgLower.includes('deporte')) {
+        respuesta = respuestasSimuladas['ejercicio'];
+      } else if (msgLower.includes('medicamento') || msgLower.includes('horario')) {
+        respuesta = respuestasSimuladas['medicamento'];
+      } else if (msgLower.includes('agua') || msgLower.includes('hidratación')) {
+        respuesta = respuestasSimuladas['agua'];
+      } else if (msgLower.includes('educación') || msgLower.includes('consejo') || msgLower.includes('aprender')) {
+        respuesta = respuestasSimuladas['educación'];
+      } else if (msgLower.includes('física') || msgLower.includes('fisica') || msgLower.includes('rutina')) {
+        respuesta = respuestasSimuladas['ejercicio_fisico'];
       }
       
       const botMessage = { text: respuesta, sender: 'bot' };
@@ -486,11 +510,11 @@ export default function Dashboard() {
           <LocalHospitalIcon sx={{ mr: 1 }} />
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: "bold" }}>GlucoControl</Typography>
           
-          <Tooltip title="Análisis Prolog">
+          <Tooltip title="Análisis con reglas Prolog">
             <Button variant="contained" onClick={() => setOpenPrologDialog(true)} sx={{ mr: 1, bgcolor: "#ffffff", color: "#1976d2", '&:hover': { bgcolor: "#e3f2fd" } }} startIcon={<PsychologyIcon />}>Analizar</Button>
           </Tooltip>
 
-          <Tooltip title="Asistente IA">
+          <Tooltip title="Asistente IA (Simulado)">
             <Button variant="contained" onClick={() => setOpenChatDialog(true)} sx={{ mr: 1, bgcolor: "#ffffff", color: "#1976d2", '&:hover': { bgcolor: "#e3f2fd" } }} startIcon={<SmartToyIcon />}>Asistente</Button>
           </Tooltip>
           
@@ -528,7 +552,7 @@ export default function Dashboard() {
             </Box>
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
               <Button variant="contained" onClick={() => setOpenPrologDialog(true)} sx={{ bgcolor: "#ffffff", color: "#1976d2", fontWeight: "bold", '&:hover': { bgcolor: "#e3f2fd", transform: "scale(1.05)" } }} startIcon={<PsychologyIcon />}>Análisis Prolog</Button>
-              <Button variant="contained" onClick={() => setOpenChatDialog(true)} sx={{ bgcolor: "#ffffff", color: "#1976d2", fontWeight: "bold", '&:hover': { bgcolor: "#e3f2fd", transform: "scale(1.05)" } }} startIcon={<SmartToyIcon />}>Asistente</Button>
+              <Button variant="contained" onClick={() => setOpenChatDialog(true)} sx={{ bgcolor: "#ffffff", color: "#1976d2", fontWeight: "bold", '&:hover': { bgcolor: "#e3f2fd", transform: "scale(1.05)" } }} startIcon={<SmartToyIcon />}>Asistente IA</Button>
             </Box>
           </Box>
         </Paper>
@@ -1017,24 +1041,45 @@ export default function Dashboard() {
               <Box sx={{ mb: 3 }}>
                 <Box sx={{ p: 3, borderRadius: 2, bgcolor: alpha(getAnalisisColor(analisisProlog.resultado), 0.1), border: `2px solid ${getAnalisisColor(analisisProlog.resultado)}`, mb: 2 }}>
                   <Typography variant="h6" gutterBottom>Resultado para {analisisProlog.valor} mg/dL</Typography>
-                  <Chip label={analisisProlog.resultado === "normal" ? "✅ Normal" : analisisProlog.resultado === "baja" ? "⚠️ Baja" : "⚠️ Alta"} sx={{ bgcolor: getAnalisisColor(analisisProlog.resultado), color: "white", fontWeight: "bold", mb: 2 }} />
+                  <Chip 
+                    label={analisisProlog.resultado === "normal" ? "✅ Normal" : analisisProlog.resultado === "baja" ? "⚠️ Baja" : "⚠️ Alta"} 
+                    sx={{ bgcolor: getAnalisisColor(analisisProlog.resultado), color: "white", fontWeight: "bold", mb: 2 }} 
+                  />
                   <Typography variant="body1" sx={{ mt: 2, whiteSpace: "pre-wrap" }}>
                     <LightbulbIcon sx={{ mr: 1, verticalAlign: "middle", color: "#ff9800" }} />
                     {analisisProlog.recomendacion}
                   </Typography>
+                  {analisisProlog.modo === 'simulado' && (
+                    <Chip label="Modo simulado" size="small" sx={{ mt: 1, bgcolor: "#ff9800", color: "white" }} />
+                  )}
                 </Box>
                 <Typography variant="caption" color="text.secondary">Análisis: {format(new Date(analisisProlog.timestamp), "HH:mm • dd/MM/yyyy")}</Typography>
               </Box>
             ) : (
               <Box sx={{ textAlign: "center", py: 3 }}>
-                <Typography variant="body1" color="text.secondary" gutterBottom>Ingresa un valor de glucosa para analizar con Prolog</Typography>
+                <Typography variant="body1" color="text.secondary" gutterBottom>Ingresa un valor de glucosa para analizar con las reglas de Prolog</Typography>
                 <Box sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
-                  <TextField label="Glucosa (mg/dL)" type="number" value={glucosaParaAnalizar} onChange={(e) => setGlucosaParaAnalizar(e.target.value)} sx={{ width: 200 }} InputProps={{ inputProps: { min: 40, max: 600 } }} />
-                  <Button variant="contained" onClick={analizarConProlog} disabled={cargandoAnalisis} startIcon={cargandoAnalisis ? <CircularProgress size={20} /> : <PsychologyIcon />}>
+                  <TextField 
+                    label="Glucosa (mg/dL)" 
+                    type="number" 
+                    value={glucosaParaAnalizar} 
+                    onChange={(e) => setGlucosaParaAnalizar(e.target.value)} 
+                    sx={{ width: 200 }} 
+                    InputProps={{ inputProps: { min: 40, max: 600 } }} 
+                  />
+                  <Button 
+                    variant="contained" 
+                    onClick={analizarConProlog} 
+                    disabled={cargandoAnalisis} 
+                    startIcon={cargandoAnalisis ? <CircularProgress size={20} /> : <PsychologyIcon />}
+                  >
                     {cargandoAnalisis ? "Analizando..." : "Analizar"}
                   </Button>
                 </Box>
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: "block" }}>Rango normal: 70-180 mg/dL</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                  Reglas Prolog: normal (70-180) • baja (&lt;70) • alta (&gt;180)
+                </Typography>
               </Box>
             )}
           </DialogContent>
@@ -1047,13 +1092,13 @@ export default function Dashboard() {
         </Dialog>
 
         {/* ========================================== */}
-        {/* DIÁLOGO: CHAT */}
+        {/* DIÁLOGO: ASISTENTE IA (SIMULADO - NO PROLOG) */}
         {/* ========================================== */}
         <Dialog open={openChatDialog} onClose={() => setOpenChatDialog(false)} maxWidth="md" fullWidth fullScreen={window.innerWidth < 600}>
           <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <SmartToyIcon sx={{ mr: 1 }} />
-              <Typography variant="h6">Asistente IA con Prolog</Typography>
+              <Typography variant="h6">Asistente IA - GlucoControl</Typography>
             </Box>
             <IconButton color="inherit" onClick={() => setOpenChatDialog(false)}><CloseIcon /></IconButton>
           </DialogTitle>
@@ -1071,7 +1116,7 @@ export default function Dashboard() {
                   <Paper sx={{ p: 2, bgcolor: '#f0f4f8', borderRadius: '18px 18px 18px 4px' }}>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                       <CircularProgress size={20} />
-                      <Typography variant="body2" color="text.secondary">Prolog analizando...</Typography>
+                      <Typography variant="body2" color="text.secondary">Pensando...</Typography>
                     </Box>
                   </Paper>
                 </Box>
@@ -1079,8 +1124,24 @@ export default function Dashboard() {
             </Box>
             <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <TextField fullWidth placeholder="Escribe tu mensaje..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyPress={handleChatKeyPress} multiline maxRows={3} variant="outlined" disabled={chatLoading} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }} />
-                <IconButton color="primary" onClick={sendChatMessage} disabled={chatLoading || !chatInput.trim()} sx={{ bgcolor: '#1976d2', color: 'white', '&:hover': { bgcolor: '#1565c0', transform: 'scale(1.05)' }, '&:disabled': { bgcolor: '#ccc', transform: 'none' }, width: 48, height: 48, borderRadius: 3, transition: 'transform 0.2s' }}>
+                <TextField 
+                  fullWidth 
+                  placeholder="Escribe tu mensaje..." 
+                  value={chatInput} 
+                  onChange={(e) => setChatInput(e.target.value)} 
+                  onKeyPress={handleChatKeyPress} 
+                  multiline 
+                  maxRows={3} 
+                  variant="outlined" 
+                  disabled={chatLoading} 
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }} 
+                />
+                <IconButton 
+                  color="primary" 
+                  onClick={sendChatMessage} 
+                  disabled={chatLoading || !chatInput.trim()} 
+                  sx={{ bgcolor: '#1976d2', color: 'white', '&:hover': { bgcolor: '#1565c0', transform: 'scale(1.05)' }, '&:disabled': { bgcolor: '#ccc', transform: 'none' }, width: 48, height: 48, borderRadius: 3, transition: 'transform 0.2s' }}
+                >
                   <SendIcon />
                 </IconButton>
               </Box>
