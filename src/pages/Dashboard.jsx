@@ -1,4 +1,4 @@
-// Dashboard.jsx - Versión actualizada con acceso al chat
+// Dashboard.jsx - Versión actualizada con acceso al chat y análisis Prolog
 import { useState, useEffect } from "react";
 import {
   Container,
@@ -32,7 +32,8 @@ import {
   Badge,
   alpha,
   Tooltip,
-  CircularProgress
+  CircularProgress,
+  Divider
 } from "@mui/material";
 import {
   Favorite as FavoriteIcon,
@@ -55,7 +56,9 @@ import {
   Fastfood as FastfoodIcon,
   FitnessCenter as FitnessCenterIcon,
   Logout as LogoutIcon,
-  SmartToy as SmartToyIcon // Importamos el icono del asistente
+  SmartToy as SmartToyIcon,
+  Psychology as PsychologyIcon,
+  Lightbulb as LightbulbIcon
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -120,6 +123,7 @@ export default function Dashboard() {
   const [openActivityDialog, setOpenActivityDialog] = useState(false);
   const [openGlucosaDialog, setOpenGlucosaDialog] = useState(false);
   const [openProfileDialog, setOpenProfileDialog] = useState(false);
+  const [openPrologDialog, setOpenPrologDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [editingMed, setEditingMed] = useState(null);
   const [editingMeal, setEditingMeal] = useState(null);
@@ -131,6 +135,11 @@ export default function Dashboard() {
   const [comidas, setComidas] = useState([]);
   const [actividad, setActividad] = useState({ pasos: 0, minutos: 0, calorias: 0, metaPasos: 10000 });
   const [hidratacion, setHidratacion] = useState({ vasos: 0, metaVasos: 8 });
+  
+  // Estado para análisis Prolog
+  const [analisisProlog, setAnalisisProlog] = useState(null);
+  const [glucosaParaAnalizar, setGlucosaParaAnalizar] = useState("");
+  const [cargandoAnalisis, setCargandoAnalisis] = useState(false);
   
   // Formularios
   const [newMedicamento, setNewMedicamento] = useState({ nombre: "", dosis: "", horario: "08:00" });
@@ -216,6 +225,37 @@ export default function Dashboard() {
 
   const showMessage = (message, severity = "success") => {
     setSnackbar({ open: true, message, severity });
+  };
+
+  // PASO 10: Función para analizar con Prolog
+  const analizarConProlog = async () => {
+    const valor = parseInt(glucosaParaAnalizar);
+    if (isNaN(valor) || valor < 40 || valor > 600) {
+      showMessage("⚠️ Ingresa un valor válido entre 40 y 600 mg/dL", "error");
+      return;
+    }
+
+    setCargandoAnalisis(true);
+    try {
+      const response = await api.post("/prolog/analizar", {
+        glucosa: valor
+      });
+
+      setAnalisisProlog({
+        valor: valor,
+        resultado: response.data.resultado,
+        recomendacion: response.data.recomendacion || "Sin recomendación específica",
+        timestamp: new Date().toISOString()
+      });
+      
+      setOpenPrologDialog(true);
+      showMessage("✅ Análisis completado con éxito");
+    } catch (error) {
+      console.error('Error al analizar con Prolog:', error);
+      showMessage(error.response?.data?.mensaje || 'Error al realizar el análisis', 'error');
+    } finally {
+      setCargandoAnalisis(false);
+    }
   };
 
   // Registrar glucosa
@@ -399,6 +439,14 @@ export default function Dashboard() {
   const porcentajeProgreso = Math.min((actividad.pasos / actividad.metaPasos) * 100, 100);
   const porcentajeHidratacion = Math.min((hidratacion.vasos / hidratacion.metaVasos) * 100, 100);
 
+  // Obtener color según estado de glucosa para el análisis
+  const getAnalisisColor = (estado) => {
+    if (estado === "normal") return "#4caf50";
+    if (estado === "baja") return "#ff9800";
+    if (estado === "alta") return "#f44336";
+    return "#1976d2";
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -417,7 +465,26 @@ export default function Dashboard() {
             GlucoControl
           </Typography>
           
-          {/* BOTÓN DEL ASISTENTE IA EN LA BARRA SUPERIOR */}
+          {/* Botón Análisis Prolog */}
+          <Tooltip title="Análisis con Prolog">
+            <Button
+              variant="contained"
+              onClick={() => setOpenPrologDialog(true)}
+              sx={{ 
+                mr: 1,
+                bgcolor: "#ffffff",
+                color: "#1976d2",
+                '&:hover': {
+                  bgcolor: "#e3f2fd",
+                }
+              }}
+              startIcon={<PsychologyIcon />}
+            >
+              Analizar
+            </Button>
+          </Tooltip>
+
+          {/* Botón del Asistente IA */}
           <Tooltip title="Asistente IA">
             <Button
               variant="contained"
@@ -481,26 +548,47 @@ export default function Dashboard() {
               </Typography>
             </Box>
             
-            {/* BOTÓN DEL ASISTENTE IA EN EL HEADER DEL DASHBOARD */}
-            <Button
-              variant="contained"
-              onClick={() => navigate("/chat")}
-              sx={{
-                bgcolor: "#ffffff",
-                color: "#1976d2",
-                fontWeight: "bold",
-                px: 3,
-                py: 1.5,
-                '&:hover': {
-                  bgcolor: "#e3f2fd",
-                  transform: "scale(1.05)",
-                },
-                transition: "transform 0.2s",
-              }}
-              startIcon={<SmartToyIcon />}
-            >
-              Hablar con mi Asistente
-            </Button>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Button
+                variant="contained"
+                onClick={() => setOpenPrologDialog(true)}
+                sx={{
+                  bgcolor: "#ffffff",
+                  color: "#1976d2",
+                  fontWeight: "bold",
+                  px: 3,
+                  py: 1.5,
+                  '&:hover': {
+                    bgcolor: "#e3f2fd",
+                    transform: "scale(1.05)",
+                  },
+                  transition: "transform 0.2s",
+                }}
+                startIcon={<PsychologyIcon />}
+              >
+                Análisis Prolog
+              </Button>
+              
+              <Button
+                variant="contained"
+                onClick={() => navigate("/chat")}
+                sx={{
+                  bgcolor: "#ffffff",
+                  color: "#1976d2",
+                  fontWeight: "bold",
+                  px: 3,
+                  py: 1.5,
+                  '&:hover': {
+                    bgcolor: "#e3f2fd",
+                    transform: "scale(1.05)",
+                  },
+                  transition: "transform 0.2s",
+                }}
+                startIcon={<SmartToyIcon />}
+              >
+                Hablar con mi Asistente
+              </Button>
+            </Box>
           </Box>
         </Paper>
 
@@ -534,6 +622,9 @@ export default function Dashboard() {
                   <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
                     <Button fullWidth variant="contained" onClick={() => setOpenGlucosaDialog(true)}>
                       Registrar Manual
+                    </Button>
+                    <Button fullWidth variant="outlined" onClick={() => setOpenPrologDialog(true)}>
+                      Analizar
                     </Button>
                   </Box>
                 </CardContent>
@@ -832,6 +923,85 @@ export default function Dashboard() {
             </Grid>
           </Grid>
         )}
+
+        {/* Diálogo de Análisis Prolog */}
+        <Dialog open={openPrologDialog} onClose={() => setOpenPrologDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <PsychologyIcon color="primary" /> Análisis con Prolog
+          </DialogTitle>
+          <DialogContent dividers>
+            {analisisProlog ? (
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ 
+                  p: 3, 
+                  borderRadius: 2, 
+                  bgcolor: alpha(getAnalisisColor(analisisProlog.resultado), 0.1),
+                  border: `2px solid ${getAnalisisColor(analisisProlog.resultado)}`,
+                  mb: 2
+                }}>
+                  <Typography variant="h6" gutterBottom>
+                    Resultado del análisis para {analisisProlog.valor} mg/dL
+                  </Typography>
+                  <Chip 
+                    label={analisisProlog.resultado === "normal" ? "✅ Normal" : 
+                           analisisProlog.resultado === "baja" ? "⚠️ Baja" : "⚠️ Alta"}
+                    sx={{ 
+                      bgcolor: getAnalisisColor(analisisProlog.resultado),
+                      color: "white",
+                      fontWeight: "bold",
+                      mb: 2
+                    }}
+                  />
+                  <Typography variant="body1" sx={{ mt: 2 }}>
+                    <LightbulbIcon sx={{ mr: 1, verticalAlign: "middle", color: "#ff9800" }} />
+                    {analisisProlog.recomendacion}
+                  </Typography>
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  Análisis realizado: {format(new Date(analisisProlog.timestamp), "HH:mm • dd/MM/yyyy")}
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ textAlign: "center", py: 3 }}>
+                <Typography variant="body1" color="text.secondary" gutterBottom>
+                  Ingresa un valor de glucosa para analizar con el sistema Prolog
+                </Typography>
+                <Box sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "center" }}>
+                  <TextField
+                    label="Glucosa (mg/dL)"
+                    type="number"
+                    value={glucosaParaAnalizar}
+                    onChange={(e) => setGlucosaParaAnalizar(e.target.value)}
+                    sx={{ width: 200 }}
+                    InputProps={{ inputProps: { min: 40, max: 600 } }}
+                  />
+                  <Button 
+                    variant="contained" 
+                    onClick={analizarConProlog}
+                    disabled={cargandoAnalisis}
+                    startIcon={cargandoAnalisis ? <CircularProgress size={20} /> : <PsychologyIcon />}
+                  >
+                    {cargandoAnalisis ? "Analizando..." : "Analizar"}
+                  </Button>
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: "block" }}>
+                  Rango normal: 70-180 mg/dL
+                </Typography>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenPrologDialog(false)}>Cerrar</Button>
+            {analisisProlog && (
+              <Button variant="outlined" onClick={() => {
+                setAnalisisProlog(null);
+                setGlucosaParaAnalizar("");
+              }}>
+                Nuevo Análisis
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
 
         {/* Diálogo de Perfil */}
         <Dialog open={openProfileDialog} onClose={() => setOpenProfileDialog(false)} maxWidth="sm" fullWidth>
